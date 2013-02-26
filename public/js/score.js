@@ -1,45 +1,32 @@
-// Avoid `console` errors in browsers that lack a console.
-if (!(window.console && console.log)) {
-    (function() {
-        var noop = function() {};
-        var methods = ['assert', 'clear', 'count', 'debug', 'dir', 'dirxml', 'error', 'exception', 'group', 'groupCollapsed', 'groupEnd', 'info', 'log', 'markTimeline', 'profile', 'profileEnd', 'markTimeline', 'table', 'time', 'timeEnd', 'timeStamp', 'trace', 'warn'];
-        var length = methods.length;
-        var console = window.console = {};
-        while (length--) {
-            console[methods[length]] = noop;
-        }
-    }());
-}
+(function machine ( jQuery ) {
+	"use strict";
 
-// Place any jQuery/helper plugins in here.
-
-String.prototype.lpad = function( padWith, length ) {
-	var string = this;
-	while ( string.length < length ) {
-		string = padWith + string;
-	}
-	return string;
-};
-
-(function machine() {
 	var chart = jQuery( ".scores" );
 	var oldScore = jQuery( ".old-score" );
 	
-	var updateScores = function() {
+	String.prototype.lpad = function( padWith, length ) {
+		var string = this;
+		while ( string.length < length ) {
+			string = padWith + string;
+		}
+		return string;
+	};
+
+	var updateScores = function () {
 		jQuery.get( "/get", {}, processScores, "json" );
 		setTimeout( updateScores, 5000 );
 	};
 	updateScores();
 	
-	var sorter = function sorter( a, b ) {
+	var sorter = function sorter ( a, b ) {
 		return b - a;
-	}
+	};
 
-	function processScores( data ) {
+	function processScores ( data ) {
 		chart.empty();
 
 		// omg FUTURE
-		Object.keys( data ).sort( sorter ).forEach(function( points, i ) {
+		Object.keys( data ).sort( sorter ).forEach(function ( points, i ) {
 			if ( i > 8 ) { return; }
 			var name = data[ points ];
 			var li = jQuery( "<li>" );
@@ -54,7 +41,7 @@ String.prototype.lpad = function( padWith, length ) {
 		cleanScores();
 	}
 
-	var cleanScores = function() {
+	var cleanScores = function () {
 		var scores = jQuery( ".score" );
 		var names = jQuery( ".name" );
 
@@ -63,7 +50,9 @@ String.prototype.lpad = function( padWith, length ) {
 			var score = element.text();
 			var padded = score.lpad( 0, 6 );
 	
-			if ( score > 999999 ) { score = 999999 }
+			if ( score > 999999 ) {
+				score = 999999;
+			}
 	
 			element.text( padded );
 		});
@@ -76,10 +65,9 @@ String.prototype.lpad = function( padWith, length ) {
 			var padded = score.lpad( " ", 10 );
 			element.text( padded );
 		});
-	}
+	};
 
 	var articles = jQuery( "article" );
-	var scoreboard = articles.eq( 0 );
 	var winning = articles.eq( 1 );
 	var buttons = articles.find( "button" );
 	var play = buttons.filter( ".play" );
@@ -90,7 +78,7 @@ String.prototype.lpad = function( padWith, length ) {
 
 	play.focus();
 
-	player.keypress(function( event ) {
+	player.keypress(function ( event ) {
 		var playerName = player.val();
 		if ( event.which === 13 ) {
 			return;
@@ -101,43 +89,39 @@ String.prototype.lpad = function( padWith, length ) {
 		}
 	});
 
-	player.keyup(function( event ) {
+	player.keyup(function ( event ) {
 		if ( event.which === 13 ) {
 			win.trigger( "click" );
 		}
 	});
 
-	play.click(function() {
+	play.click(function () {
 		articles.toggle();
 		player.focus();
 	});
 
-	win.click(function() {
+	win.click(function () {
 		var playerName = player.val();
 
 		if ( playerName.length > max ) {
 			player.val( "" );
-			player.attr( "placeholder", "TOO LONG")
+			player.attr( "placeholder", "TOO LONG" );
 			return;
 		} else if ( playerName.length < min ) {
 			player.val( "" );
-//			player.attr( "placeholder", "NOT LONG" );
 			return;
 		} else {
-			playerName = playerName.trim().replace(/\s+/g, " ");
+			playerName = playerName.trim().replace( /\s+/g, " " );
 			
-			jQuery.post( "/put", { player: playerName }, postSuccess )
-			  .fail(function(){
-			  	console.error( "damn", arguments )
-			  });
+			jQuery.post( "/put", { player: playerName }, postSuccess );
 		}
 	});
 
-	function postSuccess( response ) {
+	function postSuccess() {
 		updateScores();
 		articles.toggle();
 		play.focus();
 		player.attr( "placeholder", "INSERT NAME" ).val( "" );
 	}
 		
-})();
+})( window.jQuery, undefined );
