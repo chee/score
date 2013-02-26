@@ -14,30 +14,32 @@ game.get( '/', function ( request, response ) {
 });
 
 game.get( '/longget', function ( request, response ) {
-	var openFile = q.nfcall( fs.open, game.get( 'scores file' ), 'r' );
+	var scoresFile = readScores();
 
 	response.header( 'Content-Type', 'text/event-stream' );
 	response.header( 'Cache-Control', 'no-cache' );
 	response.header( 'Connection', 'keep-alive' );
 
-	response.write( 'id: ' + new Date().getTime() + '\n' );
-	response.write( 'event: data\n' );
+	function writeData ( text ) {
+		response.write( 'id: ' + new Date().getTime() + '\n' );
+		response.write( 'event: data\n' );
+		response.write( 'data: ' + text + '\n\n' );
+	}
 
-	openFile.then(function ( error, descriptor ) {
-		return q.nfcall( fs.watchFile, game.get( 'scores file' ) );
-	}).then(function ( current, previous ) {
-		console.log( current );
-		if ( current.size > previous.size ) {
-			return readScores();
-		}
-	}).then(function ( text ) {
-		response.write( 'data: ' + topScores( text ) + '\n\n' );
+	function writeScoresData () {
+		readScores().then(function ( text ) {
+			writeData( JSON.stringify( topScores( text ) ) );
+		});
+	}
+
+	// do it once
+	writeScoresData();
+
+	// do it forever
+	watchScores().then(function () {
+		writeScoresData();
 	});
 });
-
-function watchScores () {
-
-}
 
 game.get( '/get', function ( request, response ) {
 	var scoresFile = readScores();
@@ -79,6 +81,13 @@ function readScores () {
 	return fileDeferred.promise;
 }
 
+function watchScores () {
+	var fileDeferred = q.defer();
+	fs.watch( game.get( 'scores file' ), function ( event ) {
+		fileDeferred.resolve( event );
+	});
+	return fileDeferred.promise;
+}
 
 game.post( '/put', function ( request, response ) {
 	var name = request.body.player;

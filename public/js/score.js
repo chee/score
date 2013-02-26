@@ -20,7 +20,8 @@
 		if ( window.EventSource && typeof EventSource === "function" ) {
 			var source = new window.EventSource( "/longget" );
 			source.addEventListener( "data", function ( event ) {
-				processScores( event.data );
+				var data = JSON.parse( event.data );
+				processScores( data );
 			});
 			return;
 		} else {
