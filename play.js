@@ -5,6 +5,7 @@
 var game = express();
 
 game.set( 'title', 'Scores' );
+game.set( 'scores file', 'scores' );
 game.use( express.bodyParser() );
 game.use( express.static( __dirname + '/public' ) );
 
@@ -13,26 +14,62 @@ game.get( '/', function ( request, response ) {
 });
 
 game.get( '/longget', function ( request, response ) {
-	var id = new Date().toLocaleTimeString();
+	var openFile = q.nfcall( fs.open, game.get( 'scores file' ), 'r' );
+
 	response.header( 'Content-Type', 'text/event-stream' );
 	response.header( 'Cache-Control', 'no-cache' );
 	response.header( 'Connection', 'keep-alive' );
+
+	response.write( 'id: ' + new Date().getTime() + '\n' );
+	response.write( 'event: data\n' );
+
+	openFile.then(function ( error, descriptor ) {
+		return q.nfcall( fs.watchFile, game.get( 'scores file' ) );
+	}).then(function ( current, previous ) {
+		console.log( current );
+		if ( current.size > previous.size ) {
+			return readScores();
+		}
+	}).then(function ( text ) {
+		response.write( 'data: ' + topScores( text ) + '\n\n' );
+	});
 });
+
+function watchScores () {
+
+}
 
 game.get( '/get', function ( request, response ) {
 	var scoresFile = readScores();
-	scoresFile.then(function ( scores ) {
+	scoresFile.then(function ( text ) {
 		response.header( 'Content-Type', 'application/json' );
 		response.header( 'Cache-Control', 'no-cache' );
-		response.send( 200, scores );
+		response.send( 200, topScores( text ) );
 	}).fail(function () {
 		response.send( 404, 'FUCK' );
 	});
 });
 
+function topScores ( text ) {
+	var scores = {};
+	var json = JSON.parse( text );
+
+	_( json ).keys().sort(function ( a, b ) {
+		return b - a;
+	}).each(function ( points, i ) {
+		if ( i > 8 ) {
+			return;
+		}
+		var name = json[ points ];
+		scores[ points ] = name;
+	});
+
+	return scores;
+}
+
 function readScores () {
 	var fileDeferred = q.defer();
-	fs.readFile( 'scores', 'utf-8', function ( error, text ) {
+	fs.readFile( game.get( 'scores file' ), 'utf-8', function ( error, text ) {
 		if ( error ) {
 			fileDeferred.reject( new Error( error ) );
 		} else {

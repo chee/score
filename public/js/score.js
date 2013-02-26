@@ -1,4 +1,8 @@
-(function machine ( jQuery ) {
+/* THIS CODE IS FUCKING NASTY. I NEED TO REWRITE IT */
+/* WOW I CAN'T BELIEVE HOW MUCH BETTER I AM SINCE SO FEW MONTHS AGO */
+/* THIS SHIT IS DREADFUL */
+
+(function machine ( jQuery, _ ) {
 	"use strict";
 
 	var chart = jQuery( ".scores" );
@@ -13,8 +17,16 @@
 	};
 
 	var updateScores = function () {
-		jQuery.get( "/get", {}, processScores, "json" );
-		setTimeout( updateScores, 5000 );
+		if ( window.EventSource && typeof EventSource === "function" ) {
+			var source = new window.EventSource( "/longget" );
+			source.addEventListener( "data", function ( event ) {
+				processScores( event.data );
+			});
+			return;
+		} else {
+			jQuery.get( "/get", {}, processScores, "json" );
+			setTimeout( updateScores, 5000 );
+		}
 	};
 	updateScores();
 	
@@ -25,25 +37,28 @@
 	function processScores ( data ) {
 		chart.empty();
 
-		// omg FUTURE
-		Object.keys( data ).sort( sorter ).forEach(function ( points, i ) {
+		var items = jQuery( "<ul>" );
+		_( data ).keys().sort( sorter ).each(function ( points, i ) {
 			if ( i > 8 ) { return; }
 			var name = data[ points ];
-			var li = jQuery( "<li>" );
+			var item = jQuery( "<li>" );
 			
 			var nameSpan = jQuery( "<span>" ).addClass( "name" ).text( name );
 			var scoreSpan = jQuery( "<span>" ).addClass( "score" ).text( points );
 
-			li.append( nameSpan ).append( " " ).append( scoreSpan );
+			item.append( nameSpan ).append( " " ).append( scoreSpan );
 
-			chart.append( li );
+			items.append( item );
 		});
-		cleanScores();
+
+		cleanScores( items );
+
+		chart.append( items.children() );
 	}
 
-	var cleanScores = function () {
-		var scores = jQuery( ".score" );
-		var names = jQuery( ".name" );
+	var cleanScores = function ( items ) {
+		var scores = items.find( ".score" );
+		var names = items.find( ".name" );
 
 		scores.each(function() {
 			var element = jQuery( this );
@@ -124,4 +139,4 @@
 		player.attr( "placeholder", "INSERT NAME" ).val( "" );
 	}
 		
-})( window.jQuery, undefined );
+})( window.jQuery, window._, undefined );
