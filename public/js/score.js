@@ -1,13 +1,13 @@
 /* THIS CODE IS FUCKING NASTY. I NEED TO REWRITE IT */
 /* WOW I CAN'T BELIEVE HOW MUCH BETTER I AM SINCE SO FEW MONTHS AGO */
 /* THIS SHIT IS DREADFUL */
-
-(function machine ( jQuery, _ ) {
+(function machine ( jQuery, _, undefined ) {
 	"use strict";
 
 	var chart = jQuery( ".scores" );
 	var oldScore = jQuery( ".old-score" );
-	
+	var source;
+
 	String.prototype.lpad = function( padWith, length ) {
 		var string = this;
 		while ( string.length < length ) {
@@ -17,33 +17,29 @@
 	};
 
 	var updateScores = function () {
-		if ( window.EventSource && typeof EventSource === "function" ) {
-			var source = new window.EventSource( "/longget" );
-			source.addEventListener( "data", function ( event ) {
-				var data = JSON.parse( event.data );
-				processScores( data );
+		if ( window.EventSource && typeof EventSource === "function" && !source ) {
+			jQuery.get( "/get", {}, processScores, "json" ).done(function() {
+				console.log( 'did get, now doing longget');
+				source = new window.EventSource( "/longget" );
+				source.addEventListener( "data", function ( event ) {
+					var data = JSON.parse( event.data );
+					processScores( data );
+				});
 			});
 			return;
-		} else {
+		} else if ( !source ) {
+			clearTimeout( updateScores.timeout );
 			jQuery.get( "/get", {}, processScores, "json" );
-			setTimeout( updateScores, 5000 );
+			updateScores.timeout = setTimeout( updateScores, 5000 );
 		}
-	};
-	updateScores();
-	
-	var sorter = function sorter ( a, b ) {
-		return b - a;
 	};
 
 	function processScores ( data ) {
-		chart.empty();
-
 		var items = jQuery( "<ul>" );
-		_( data ).keys().sort( sorter ).each(function ( points, i ) {
-			if ( i > 8 ) { return; }
+		_( data ).keys().reverse().each(function ( points, i ) {
 			var name = data[ points ];
 			var item = jQuery( "<li>" );
-			
+
 			var nameSpan = jQuery( "<span>" ).addClass( "name" ).text( name );
 			var scoreSpan = jQuery( "<span>" ).addClass( "score" ).text( points );
 
@@ -54,7 +50,16 @@
 
 		cleanScores( items );
 
-		chart.append( items.children() );
+		items = items.children();
+		var amount = items.length;
+
+		for ( var i = 0; i <= amount - 1; i++ ) {
+			console.log( i );
+			var chartChildren = chart.children();
+			chartChildren.eq( chartChildren.length - i - 1 ).remove();
+		}
+
+		chart.prepend( items );
 	}
 
 	var cleanScores = function ( items ) {
@@ -65,22 +70,23 @@
 			var element = jQuery( this );
 			var score = element.text();
 			var padded = score.lpad( 0, 6 );
-	
+
 			if ( score > 999999 ) {
 				score = 999999;
 			}
-	
+
 			element.text( padded );
 		});
-		
+
 		oldScore.text( scores.eq( 0 ).text() );
-	
+
 		names.each(function() {
 			var element = jQuery( this );
 			var score = element.text();
 			var padded = score.lpad( " ", 10 );
 			element.text( padded );
 		});
+		return items;
 	};
 
 	var articles = jQuery( "article" );
@@ -106,9 +112,12 @@
 	});
 
 	player.keyup(function ( event ) {
-		if ( event.which === 13 ) {
-			win.trigger( "click" );
+		var returnKey = 13;
+
+		if ( event.which === returnKey ) {
+			submit();
 		}
+
 	});
 
 	play.click(function () {
@@ -116,7 +125,9 @@
 		player.focus();
 	});
 
-	win.click(function () {
+	win.click( submit );
+
+	function submit() {
 		var playerName = player.val();
 
 		if ( playerName.length > max ) {
@@ -128,16 +139,16 @@
 			return;
 		} else {
 			playerName = playerName.trim().replace( /\s+/g, " " );
-			
 			jQuery.post( "/put", { player: playerName }, postSuccess );
 		}
-	});
+	}
 
 	function postSuccess() {
-		updateScores();
 		articles.toggle();
 		play.focus();
 		player.attr( "placeholder", "INSERT NAME" ).val( "" );
+		updateScores();
 	}
-		
-})( window.jQuery, window._, undefined );
+
+	return updateScores;
+})( window.jQuery, window._ )();
